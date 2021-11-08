@@ -1,0 +1,12 @@
+version: "3"
+services:
+  pswa:
+    image: pswa
+    build: .
+    env_file:
+      - pswa.env
+    volumes:
+      - "./static:/home/site/wwwroot"
+      - "./pswa.config.json:/pswa.config.json"
+    ports:
+      - "8080:8080"
