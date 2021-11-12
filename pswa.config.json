@@ -17,6 +17,18 @@
       "allowedRoles": [
         "bnken"
       ]
+    },
+    {
+      "route": "/.auth/*",
+      "allowedRoles": [
+        "anonymous"
+      ]
+    },
+    {
+      "route": "/*",
+      "allowedRoles": [
+        "authenticated"
+      ]
     }
   ],
   "roles": [
