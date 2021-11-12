@@ -1,9 +1,12 @@
 package core
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -35,16 +38,34 @@ func (c *Core) NewMiddleware() func(http.Handler) http.Handler {
 
 			var reqRoute *config.Route
 			for _, rr := range c.Routes {
-				if rr.Match(reqPath) {
+				if rr.Globber.Match(reqPath) {
 					reqRoute = rr
 					break
 				}
 			}
 
-			logger.Debugf("path=%#v route=%#v", reqPath, reqRoute)
+			//logger.Debugf("path=%#v route=%#v", reqPath, reqRoute)
+
+			fallback := func() {
+				if c.Config.NavigationFallback != nil {
+					ok := false
+					for _, g := range c.Config.NavigationFallback.Globbers {
+						if g.Match(reqPath) {
+							ok = true
+							break
+						}
+					}
+					if !ok {
+						r = r.Clone(r.Context())
+						r.URL.Path = c.Config.NavigationFallback.Rewrite
+						r.URL.RawPath = c.Config.NavigationFallback.Rewrite
+					}
+				}
+				next.ServeHTTP(w, r)
+			}
 
 			if reqRoute == nil {
-				next.ServeHTTP(w, r)
+				fallback()
 				return
 			}
 
@@ -58,7 +79,7 @@ func (c *Core) NewMiddleware() func(http.Handler) http.Handler {
 					}
 				}
 				if !ok {
-					next.ServeHTTP(w, r)
+					fallback()
 					return
 				}
 			}
@@ -104,21 +125,48 @@ func (c *Core) NewMiddleware() func(http.Handler) http.Handler {
 
 			if reqRoute.ProxyHandler != nil {
 				r = r.Clone(r.Context())
-				r.URL.Path = reqRoute.StripPrefix(r.URL.Path)
+				r.URL.Path = reqRoute.Globber.StripPrefix(r.URL.Path)
 				r.URL.RawPath = r.URL.Path
 				logger.Debugf("redirect to: %s", r.URL)
 				reqRoute.ProxyHandler.ServeHTTP(w, r)
 				return
 			}
 
-			next.ServeHTTP(w, r)
+			fallback()
 		})
 	}
 }
 
 func (c *Core) Handler(w http.ResponseWriter, r *http.Request) {
-	reqPath := filepath.Clean(r.URL.Path)
-	http.ServeFile(w, r, filepath.Join(c.Root, reqPath))
+	p := filepath.Join(c.Root, filepath.Clean(r.URL.Path))
+	if !strings.HasSuffix(p, "/index.html") {
+		http.ServeFile(w, r, p)
+		return
+	}
+	f, err := os.Open(p)
+	if err != nil {
+		msg, status := toHTTPError(err)
+		http.Error(w, msg, status)
+		return
+	}
+	defer f.Close()
+	d, err := f.Stat()
+	if err != nil {
+		msg, status := toHTTPError(err)
+		http.Error(w, msg, status)
+		return
+	}
+	http.ServeContent(w, r, d.Name(), d.ModTime(), f)
+}
+
+func toHTTPError(err error) (msg string, httpStatus int) {
+	if errors.Is(err, fs.ErrNotExist) {
+		return "404 page not found", http.StatusNotFound
+	}
+	if errors.Is(err, fs.ErrPermission) {
+		return "403 Forbidden", http.StatusForbidden
+	}
+	return "500 Internal Server Error", http.StatusInternalServerError
 }
 
 func New(root string, cfg *config.Config, ss sessions.Store) *Core {

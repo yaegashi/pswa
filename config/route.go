@@ -5,9 +5,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"strings"
-
-	"github.com/gobwas/glob"
 )
 
 type Route struct {
@@ -20,25 +17,14 @@ type Route struct {
 	StatusCode   string            `json:"statusCode"`
 	Methods      []string          `json:"methods"`
 	ProxyHandler http.Handler      `json:"-"`
-	prefix       string
-	globber      glob.Glob
-}
-
-func (r *Route) StripPrefix(path string) string {
-	return strings.TrimPrefix(path, r.prefix)
+	Globber      Globber           `json:"-"`
 }
 
 func (r *Route) Compile() error {
-	if len(r.Route) == 0 || r.Route[0] != '/' {
-		return fmt.Errorf("Route %q non-absolute path", r.Route)
-	}
-	n := strings.LastIndexByte(r.Route, '/')
-	g, err := glob.Compile(r.Route[n:])
+	err := r.Globber.Compile(r.Route)
 	if err != nil {
-		return fmt.Errorf("Route %q bad glob pattern: %w", r.Route, err)
+		return err
 	}
-	r.prefix = r.Route[:n]
-	r.globber = g
 	if r.Proxy != "" {
 		u, err := url.Parse(r.Proxy)
 		if err != nil {
@@ -57,15 +43,4 @@ func (r *Route) Compile() error {
 		}
 	}
 	return nil
-}
-
-func (r *Route) Match(path string) bool {
-	if !strings.HasPrefix(path, r.prefix) {
-		return false
-	}
-	n := len(r.prefix)
-	if r.Route[n:] == "/*" {
-		return len(path) == n || path[n] == '/'
-	}
-	return r.globber.Match(path[n:])
 }

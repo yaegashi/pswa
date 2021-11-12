@@ -6,8 +6,9 @@ import (
 )
 
 type Config struct {
-	Routes []*Route `json:"routes"`
-	Roles  []*Role  `json:"roles"`
+	Routes             []*Route            `json:"routes"`
+	Roles              []*Role             `json:"roles"`
+	NavigationFallback *NavigationFallback `json:"navigationFallback"`
 }
 
 func (c *Config) MemberRoles(members []string) []string {
@@ -39,6 +40,12 @@ func New(configPath string) (*Config, error) {
 	}
 	for _, r := range c.Routes {
 		err = r.Compile()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if c.NavigationFallback != nil {
+		err = c.NavigationFallback.Compile()
 		if err != nil {
 			return nil, err
 		}
