@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"io/ioutil"
+	"sort"
 )
 
 type Config struct {
@@ -25,6 +26,7 @@ func (c *Config) MemberRoles(members []string) []string {
 			}
 		}
 	}
+	sort.Strings(roles)
 	return roles
 }
 

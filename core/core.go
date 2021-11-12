@@ -30,7 +30,7 @@ func (c *Core) NewMiddleware() func(http.Handler) http.Handler {
 			logger := logging.Logger(r.Context()).Sugar()
 
 			reqPath := filepath.Clean(r.URL.Path)
-			if strings.HasSuffix(r.URL.Path, "/") {
+			if strings.HasSuffix(r.URL.Path, "/") && !strings.HasPrefix(reqPath, "/") {
 				reqPath += "/"
 			}
 			session, _ := c.SessionStore.Get(r, "session")
