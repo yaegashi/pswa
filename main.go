@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/gorilla/sessions"
 	"github.com/yaegashi/pswa/auth"
@@ -27,7 +28,7 @@ const (
 	EnvConfig        = "PSWA_CONFIG"
 	DefaultListen    = ":8080"
 	DefaultWWWRoot   = "/home/site/wwwroot"
-	DefaultConfig    = "/pswa.config.json"
+	DefaultConfig    = "pswa.config.json"
 	FormatAADBaseURL = "https://login.microsoftonline.com/%s/v2.0"
 )
 
@@ -59,7 +60,11 @@ func (app *App) Main(ctx context.Context) error {
 
 	app.SessionStore = sessions.NewCookieStore([]byte(app.SessionKey))
 
-	app.Config, err = config.New(app.ConfigPath)
+	configPath := app.ConfigPath
+	if !filepath.IsAbs(configPath) {
+		configPath = filepath.Join(app.WWWRootPath, configPath)
+	}
+	app.Config, err = config.New(configPath)
 	if err != nil {
 		return err
 	}
