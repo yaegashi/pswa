@@ -178,11 +178,11 @@ func (a *Auth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 
 func (a *Auth) MeHandler(w http.ResponseWriter, r *http.Request) {
 	session, _ := a.SessionStore.Get(r, "session")
-	identity, ok := session.Values["identity"]
-	if !ok {
-		http.Error(w, "Not logged in", http.StatusUnauthorized)
-		return
-	}
 	w.Header().Set("Content-Type", "application/json")
-	dump(w, identity)
+	identity, ok := session.Values["identity"]
+	if ok {
+		dump(w, identity)
+	} else {
+		fmt.Fprint(w, "{}")
+	}
 }
