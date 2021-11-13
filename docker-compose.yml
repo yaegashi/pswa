@@ -6,7 +6,6 @@ services:
     env_file:
       - pswa.env
     volumes:
-      - "./static:/home/site/wwwroot"
-      - "./pswa.config.json:/pswa.config.json"
+      - "./hugo/public:/home/site/wwwroot"
     ports:
       - "8080:8080"

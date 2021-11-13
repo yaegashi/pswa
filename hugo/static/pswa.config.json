@@ -1,0 +1,30 @@
+{
+  "routes": [
+    {
+      "route": "/admin/*",
+      "allowedRoles": [
+        "admin"
+      ]
+    },
+    {
+      "route": "/internal/*",
+      "allowedRoles": [
+        "authenticated"
+      ]
+    },
+    {
+      "route": "/pswa.config.json",
+      "redirect": "/"
+    }
+  ],
+  "roles": [
+    {
+      "role": "admin",
+      "members": [
+        "34a36796-6043-4dea-85e1-c6ad121a54d4",
+        "06fe36df-51ab-49d9-aa3e-2b0034c2cbd1",
+        "5bafeeac-804c-4ea4-95c6-11696535c8cb"
+      ]
+    }
+  ]
+}
