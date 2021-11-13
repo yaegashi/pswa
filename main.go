@@ -47,6 +47,8 @@ type App struct {
 	ConfigPath   string
 }
 
+var unconfigured = config.Unconfigured("/unconfigured/")
+
 func (app *App) Main(ctx context.Context) error {
 	zapCfg := zap.NewDevelopmentConfig()
 	zapCfg.EncoderConfig.ConsoleSeparator = " "
@@ -66,21 +68,26 @@ func (app *App) Main(ctx context.Context) error {
 	}
 	app.Config, err = config.New(configPath)
 	if err != nil {
-		return err
+		log.Printf("WARN: Config failed: %s", err)
+		app.Config = unconfigured
 	}
 
 	app.Auth, err = auth.New(app.TenantID, app.ClientID, app.ClientSecret, app.RedirectURL, app.Config, app.SessionStore)
 	if err != nil {
-		return err
+		log.Printf("WARN: Auth failed: %s", err)
+		app.WWWRootPath = "/public"
+		app.Config = unconfigured
 	}
 
 	app.Core = core.New(app.WWWRootPath, app.Config, app.SessionStore)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/.auth/login/aad", app.Auth.LoginHandler)
-	mux.HandleFunc("/.auth/login/aad/callback", app.Auth.CallbackHandler)
-	mux.HandleFunc("/.auth/logout", app.Auth.LogoutHandler)
-	mux.HandleFunc("/.auth/me", app.Auth.MeHandler)
+	if app.Auth != nil {
+		mux.HandleFunc("/.auth/login/aad", app.Auth.LoginHandler)
+		mux.HandleFunc("/.auth/login/aad/callback", app.Auth.CallbackHandler)
+		mux.HandleFunc("/.auth/logout", app.Auth.LogoutHandler)
+		mux.HandleFunc("/.auth/me", app.Auth.MeHandler)
+	}
 	mux.HandleFunc("/", app.Core.Handler)
 
 	handler := logging.NewMiddleware(logger)(app.Core.NewMiddleware()(mux))

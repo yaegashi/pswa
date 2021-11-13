@@ -54,3 +54,9 @@ func New(configPath string) (*Config, error) {
 	}
 	return c, nil
 }
+
+func Unconfigured(path string) *Config {
+	c := &Config{Routes: []*Route{{Route: "/.auth/*", Rewrite: path}}}
+	c.Routes[0].Compile()
+	return c
+}
