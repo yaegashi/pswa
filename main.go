@@ -18,18 +18,18 @@ import (
 )
 
 const (
-	EnvTenantID      = "PSWA_TENANT_ID"
-	EnvClientID      = "PSWA_CLIENT_ID"
-	EnvClientSecret  = "PSWA_CLIENT_SECRET"
-	EnvRedirectURL   = "PSWA_REDIRECT_URI"
-	EnvSessionKey    = "PSWA_SESSION_KEY"
-	EnvListen        = "PSWA_LISTEN"
-	EnvWWWRoot       = "PSWA_WWWROOT"
-	EnvConfig        = "PSWA_CONFIG"
-	DefaultListen    = ":8080"
-	DefaultWWWRoot   = "/home/site/wwwroot"
-	DefaultConfig    = "pswa.config.json"
-	FormatAADBaseURL = "https://login.microsoftonline.com/%s/v2.0"
+	EnvTenantID     = "PSWA_TENANT_ID"
+	EnvClientID     = "PSWA_CLIENT_ID"
+	EnvClientSecret = "PSWA_CLIENT_SECRET"
+	EnvRedirectURI  = "PSWA_REDIRECT_URI"
+	EnvAuthParams   = "PSWA_AUTH_PARAMS"
+	EnvSessionKey   = "PSWA_SESSION_KEY"
+	EnvListen       = "PSWA_LISTEN"
+	EnvWWWRoot      = "PSWA_WWWROOT"
+	EnvConfig       = "PSWA_CONFIG"
+	DefaultListen   = ":8080"
+	DefaultWWWRoot  = "/home/site/wwwroot"
+	DefaultConfig   = "pswa.config.json"
 )
 
 type App struct {
@@ -40,7 +40,8 @@ type App struct {
 	TenantID     string
 	ClientID     string
 	ClientSecret string
-	RedirectURL  string
+	RedirectURI  string
+	AuthParams   string
 	SessionKey   string
 	Listen       string
 	WWWRootPath  string
@@ -72,7 +73,7 @@ func (app *App) Main(ctx context.Context) error {
 		app.Config = unconfigured
 	}
 
-	app.Auth, err = auth.New(app.TenantID, app.ClientID, app.ClientSecret, app.RedirectURL, app.Config, app.SessionStore)
+	app.Auth, err = auth.New(app.TenantID, app.ClientID, app.ClientSecret, app.RedirectURI, app.AuthParams, app.Config, app.SessionStore)
 	if err != nil {
 		log.Printf("WARN: Auth failed: %s", err)
 		app.WWWRootPath = "/public"
@@ -102,7 +103,8 @@ func main() {
 		TenantID:     os.Getenv(EnvTenantID),
 		ClientID:     os.Getenv(EnvClientID),
 		ClientSecret: os.Getenv(EnvClientSecret),
-		RedirectURL:  os.Getenv(EnvRedirectURL),
+		RedirectURI:  os.Getenv(EnvRedirectURI),
+		AuthParams:   os.Getenv(EnvAuthParams),
 		SessionKey:   os.Getenv(EnvSessionKey),
 		Listen:       os.Getenv(EnvListen),
 		WWWRootPath:  os.Getenv(EnvWWWRoot),

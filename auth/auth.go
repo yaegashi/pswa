@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/google/uuid"
@@ -25,11 +26,12 @@ func dump(w io.Writer, v interface{}) {
 }
 
 type Auth struct {
-	Provider     *oidc.Provider
-	Verifier     *oidc.IDTokenVerifier
-	OAuth2Config *oauth2.Config
-	Config       *config.Config
-	SessionStore sessions.Store
+	Provider              *oidc.Provider
+	Verifier              *oidc.IDTokenVerifier
+	OAuth2Config          *oauth2.Config
+	OAuth2AuthCodeOptions []oauth2.AuthCodeOption
+	Config                *config.Config
+	SessionStore          sessions.Store
 }
 
 type Identity struct {
@@ -38,13 +40,20 @@ type Identity struct {
 	Roles []string `json:"roles"`
 }
 
-func New(tenantID, clientID, clientSecret, redirectURL string, cfg *config.Config, ss sessions.Store) (*Auth, error) {
+func New(tenantID, clientID, clientSecret, redirectURI, authParams string, cfg *config.Config, ss sessions.Store) (*Auth, error) {
 	baseURL := fmt.Sprintf(FormatAADBaseURL, tenantID)
 	provider, err := oidc.NewProvider(context.Background(), baseURL)
 	if err != nil {
 		return nil, err
 	}
 	verifier := provider.Verifier(&oidc.Config{ClientID: clientID})
+	var authCodeOptions []oauth2.AuthCodeOption
+	for _, p := range strings.Split(authParams, "&") {
+		s := strings.SplitN(p, "=", 2)
+		if len(s) == 2 {
+			authCodeOptions = append(authCodeOptions, oauth2.SetAuthURLParam(s[0], s[1]))
+		}
+	}
 	return &Auth{
 		Provider:     provider,
 		Verifier:     verifier,
@@ -53,10 +62,11 @@ func New(tenantID, clientID, clientSecret, redirectURL string, cfg *config.Confi
 		OAuth2Config: &oauth2.Config{
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
-			RedirectURL:  redirectURL,
+			RedirectURL:  redirectURI,
 			Endpoint:     provider.Endpoint(),
 			Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
 		},
+		OAuth2AuthCodeOptions: authCodeOptions,
 	}, nil
 }
 
@@ -154,7 +164,7 @@ func (a *Auth) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	authCodeURL := a.OAuth2Config.AuthCodeURL(sessionState)
+	authCodeURL := a.OAuth2Config.AuthCodeURL(sessionState, a.OAuth2AuthCodeOptions...)
 	http.Redirect(w, r, authCodeURL, http.StatusFound)
 }
 

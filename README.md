@@ -33,6 +33,7 @@ It's required to expose user's member groups in ID token.
 |PSWA_CLIENT_ID|Client ID registered in Azure AD|
 |PSWA_CLIENT_SECRET|Client secret generated in Azure AD|
 |PSWA_REDIRECT_URI|Rediect URI specifed in Azure AD|
+|PSWA_AUTH_PARAMS|Additional authorize endpoint parameters in the form of `key1=val1&key2=val2&key3=val3`|
 |PSWA_SESSION_KEY|Ramdom string to encrypt values in the cookie session store|
 |PSWA_LISTEN|Server address to listen.  Default: `:8080`|
 |PSWA_WWWROOT|Web content root directory.  Default: `/home/site/wwwroot`|
