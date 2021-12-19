@@ -90,6 +90,8 @@ $ vi pswa.env
 
 Edit [pswa.config.json](hugo/static/pswa.config.json) and run hugo to build a static web site in `hugo/public`:
 ```console
+$ git submodule init
+$ git submodule update
 $ vi hugo/static/pswa.config.json
 $ hugo -s hugo
 ```
