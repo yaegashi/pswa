@@ -25,10 +25,12 @@ const (
 	EnvAuthParams   = "PSWA_AUTH_PARAMS"
 	EnvSessionKey   = "PSWA_SESSION_KEY"
 	EnvListen       = "PSWA_LISTEN"
-	EnvWWWRoot      = "PSWA_WWWROOT"
+	EnvWWWRoot      = "PSWA_WWW_ROOT"
+	EnvTestRoot     = "PSWA_TEST_ROOT"
 	EnvConfig       = "PSWA_CONFIG"
 	DefaultListen   = ":8080"
 	DefaultWWWRoot  = "/home/site/wwwroot"
+	DefaultTestRoot = "/testroot"
 	DefaultConfig   = "pswa.config.json"
 )
 
@@ -45,10 +47,9 @@ type App struct {
 	SessionKey   string
 	Listen       string
 	WWWRootPath  string
+	TestRootPath string
 	ConfigPath   string
 }
-
-var unconfigured = config.Unconfigured("/unconfigured/")
 
 func (app *App) Main(ctx context.Context) error {
 	zapCfg := zap.NewDevelopmentConfig()
@@ -70,17 +71,20 @@ func (app *App) Main(ctx context.Context) error {
 	app.Config, err = config.New(configPath)
 	if err != nil {
 		log.Printf("WARN: Config failed: %s", err)
-		app.Config = unconfigured
+		app.Config = config.Unconfigured
 	}
 
 	app.Auth, err = auth.New(app.TenantID, app.ClientID, app.ClientSecret, app.RedirectURI, app.AuthParams, app.Config, app.SessionStore)
 	if err != nil {
 		log.Printf("WARN: Auth failed: %s", err)
-		app.WWWRootPath = "/public"
-		app.Config = unconfigured
+		app.Config = config.Unconfigured
 	}
 
-	app.Core = core.New(app.WWWRootPath, app.Config, app.SessionStore)
+	root := app.WWWRootPath
+	if app.Config.TestRoot {
+		root = app.TestRootPath
+	}
+	app.Core = core.New(root, app.Config, app.SessionStore)
 
 	mux := http.NewServeMux()
 	if app.Auth != nil {
@@ -108,12 +112,17 @@ func main() {
 		SessionKey:   os.Getenv(EnvSessionKey),
 		Listen:       os.Getenv(EnvListen),
 		WWWRootPath:  os.Getenv(EnvWWWRoot),
+		TestRootPath: os.Getenv(EnvTestRoot),
+		ConfigPath:   os.Getenv(EnvConfig),
 	}
 	if app.Listen == "" {
 		app.Listen = DefaultListen
 	}
 	if app.WWWRootPath == "" {
 		app.WWWRootPath = DefaultWWWRoot
+	}
+	if app.TestRootPath == "" {
+		app.TestRootPath = DefaultTestRoot
 	}
 	if app.ConfigPath == "" {
 		app.ConfigPath = DefaultConfig

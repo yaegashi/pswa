@@ -10,6 +10,6 @@ RUN hugo
 
 FROM gcr.io/distroless/base-debian11
 COPY --from=build /app/pswa /
-COPY --from=hugo /hugo/public /public
+COPY --from=hugo /hugo/public /testroot
 EXPOSE 8080
 ENTRYPOINT ["/pswa"]

@@ -7,6 +7,7 @@ import (
 )
 
 type Config struct {
+	TestRoot           bool                `json:"testRoot"`
 	Routes             []*Route            `json:"routes"`
 	Roles              []*Role             `json:"roles"`
 	NavigationFallback *NavigationFallback `json:"navigationFallback"`
@@ -55,8 +56,4 @@ func New(configPath string) (*Config, error) {
 	return c, nil
 }
 
-func Unconfigured(path string) *Config {
-	c := &Config{Routes: []*Route{{Route: "/.auth/*", Rewrite: path}}}
-	c.Routes[0].Compile()
-	return c
-}
+var Unconfigured = &Config{TestRoot: true}

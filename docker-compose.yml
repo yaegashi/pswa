@@ -1,11 +1,11 @@
 version: "3"
 services:
   pswa:
-    image: pswa
+    image: ghcr.io/yaegashi/pswa
     build: .
     env_file:
       - pswa.env
     volumes:
-      - "./hugo/public:/home/site/wwwroot"
+      - ./pswa.config.json:/home/site/wwwroot/pswa.config.json
     ports:
       - "8080:8080"
