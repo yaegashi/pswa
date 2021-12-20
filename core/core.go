@@ -84,9 +84,13 @@ func (c *Core) NewMiddleware() func(http.Handler) http.Handler {
 				}
 			}
 
+			if reqRoute.AllowedRoles != nil {
+				w.Header().Set("Cache-Control", "no-cache")
+			}
+
 			if reqRoute.Headers != nil {
 				for k, v := range reqRoute.Headers {
-					w.Header().Add(k, v)
+					w.Header().Set(k, v)
 				}
 			}
 
