@@ -13,6 +13,12 @@
       ]
     },
     {
+      "route": "/css/*",
+      "headers": {
+        "Cache-Control": "public, max-age=604800, immutable"
+      }
+    },
+    {
       "route": "/pswa.config.json",
       "redirect": "/"
     }
