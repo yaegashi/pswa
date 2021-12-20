@@ -1,0 +1,28 @@
+<!--
+    This file overrides themes/cayman-hugo-theme/layouts/partials/footer.html
+    to inject the JS code that fetches /.auth/me and displays the content.
+-->
+<footer class="site-footer">
+    <span class="site-footer-credits">
+        {{ $.Site.Params.footer | markdownify }}
+    </span>
+</footer>
+<pre id="me" style="position: fixed; top: 8px; left: 8px; right: 8px;"></pre>
+<script>
+    window.addEventListener('load', function () {
+        const meURL = '/.auth/me';
+        fetch(meURL).then(res => {
+            if (res.ok) {
+                return res.json();
+            }
+            return Promise.reject(`GET ${meURL} failed: ${res.status} ${res.statusText}`);
+        }).then(obj => {
+            return `Me: ${JSON.stringify(obj)}`;
+        }).catch(err => {
+            return `Error: ${err}`;
+        }).then(text => {
+            console.log(text);
+            document.getElementById('me').innerText = text;
+        });
+    });
+</script>
