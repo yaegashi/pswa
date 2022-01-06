@@ -19,6 +19,17 @@ const (
 	FormatAADBaseURL = "https://login.microsoftonline.com/%s/v2.0"
 )
 
+const (
+	SessionCookieName         = "session"
+	StateValueName            = "state"
+	ReturnValueName           = "return"
+	IdentityValueName         = "identity"
+	DebugValueName            = "debug"
+	CodeValueName             = "code"
+	ErrorValueName            = "error"
+	ErrorDescriptionValueName = "error_description"
+)
+
 func dump(w io.Writer, v interface{}) {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
@@ -71,28 +82,32 @@ func New(tenantID, clientID, clientSecret, redirectURI, authParams string, cfg *
 }
 
 func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
+	if a == nil {
+		http.Error(w, "Auth config failed: see log output", http.StatusInternalServerError)
+		return
+	}
 	ctx := r.Context()
-	session, _ := a.SessionStore.Get(r, "session")
-	sessionState, ok := session.Values["state"].(string)
+	session, _ := a.SessionStore.Get(r, SessionCookieName)
+	sessionState, ok := session.Values[StateValueName].(string)
 	if !ok {
 		http.Error(w, "No state in session", http.StatusBadRequest)
 		return
 	}
-	sessionReturn, _ := session.Values["return"].(string)
+	sessionReturn, _ := session.Values[ReturnValueName].(string)
 	if sessionReturn == "" {
 		sessionReturn = "/"
 	}
-	sessionDebug, _ := session.Values["debug"].(string)
-	delete(session.Values, "state")
-	delete(session.Values, "return")
-	delete(session.Values, "debug")
+	sessionDebug, _ := session.Values[DebugValueName].(string)
+	delete(session.Values, StateValueName)
+	delete(session.Values, ReturnValueName)
+	delete(session.Values, DebugValueName)
 
-	if r.FormValue("error") != "" {
-		http.Error(w, fmt.Sprintf("Error: %s\n%s\n", r.FormValue("error"), r.FormValue("error_description")), http.StatusBadRequest)
+	if r.FormValue(ErrorValueName) != "" {
+		http.Error(w, fmt.Sprintf("Error: %s\n%s\n", r.FormValue(ErrorValueName), r.FormValue(ErrorDescriptionValueName)), http.StatusBadRequest)
 		return
 	}
-	formCode := r.FormValue("code")
-	formState := r.FormValue("state")
+	formCode := r.FormValue(CodeValueName)
+	formState := r.FormValue(StateValueName)
 	if formCode == "" || formState == "" {
 		http.Error(w, "Invalid response", http.StatusBadRequest)
 		return
@@ -131,7 +146,7 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		Email: claims.Email,
 		Roles: a.Config.MemberRoles(claims.Groups),
 	}
-	session.Values["identity"] = identity
+	session.Values[IdentityValueName] = identity
 	err = session.Save(r, w)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -149,16 +164,20 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Auth) LoginHandler(w http.ResponseWriter, r *http.Request) {
+	if a == nil {
+		http.Error(w, "Auth config failed: see log output", http.StatusInternalServerError)
+		return
+	}
 	sessionState := uuid.New().String()
-	sessionReturn := r.FormValue("return")
+	sessionReturn := r.FormValue(ReturnValueName)
 	if sessionReturn == "" {
 		sessionReturn = r.Header.Get("Referer")
 	}
-	sessionDebug := r.FormValue("debug")
-	session, _ := a.SessionStore.Get(r, "session")
-	session.Values["state"] = sessionState
-	session.Values["return"] = sessionReturn
-	session.Values["debug"] = sessionDebug
+	sessionDebug := r.FormValue(DebugValueName)
+	session, _ := a.SessionStore.Get(r, SessionCookieName)
+	session.Values[StateValueName] = sessionState
+	session.Values[ReturnValueName] = sessionReturn
+	session.Values[DebugValueName] = sessionDebug
 	err := session.Save(r, w)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -169,30 +188,39 @@ func (a *Auth) LoginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Auth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
-	session, _ := a.SessionStore.Get(r, "session")
-	sessionReturn := r.FormValue("return")
+	sessionReturn := r.FormValue(ReturnValueName)
 	if sessionReturn == "" {
 		sessionReturn = r.Header.Get("Referer")
 	}
 	if sessionReturn == "" {
 		sessionReturn = "/"
 	}
-	delete(session.Values, "identity")
-	err := session.Save(r, w)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	if a != nil {
+		session, _ := a.SessionStore.Get(r, SessionCookieName)
+		session.Options.MaxAge = -1
+		err := session.Save(r, w)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else {
+		http.SetCookie(w, &http.Cookie{Name: SessionCookieName, Path: "/", MaxAge: -1})
 	}
 	http.Redirect(w, r, sessionReturn, http.StatusFound)
 }
 
 func (a *Auth) MeHandler(w http.ResponseWriter, r *http.Request) {
-	session, _ := a.SessionStore.Get(r, "session")
-	w.Header().Set("Content-Type", "application/json")
-	identity, ok := session.Values["identity"]
-	if ok {
-		dump(w, identity)
-	} else {
-		fmt.Fprint(w, "{}")
+	body := []byte("{}")
+	if a != nil {
+		session, _ := a.SessionStore.Get(r, SessionCookieName)
+		identity, ok := session.Values[IdentityValueName]
+		if ok {
+			b, err := json.Marshal(identity)
+			if err == nil {
+				body = b
+			}
+		}
 	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(body)
 }
