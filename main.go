@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"encoding/gob"
-	"log"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -59,6 +59,7 @@ func (app *App) Main(ctx context.Context) error {
 		return err
 	}
 	defer logger.Sync()
+	loggers := logger.WithOptions(zap.WithCaller(false)).Sugar()
 
 	gob.Register(&auth.Identity{})
 
@@ -68,36 +69,42 @@ func (app *App) Main(ctx context.Context) error {
 	if !filepath.IsAbs(configPath) {
 		configPath = filepath.Join(app.WWWRootPath, configPath)
 	}
+	loggers.Infof("Reading config: %s", configPath)
 	app.Config, err = config.New(configPath)
 	if err != nil {
-		log.Printf("WARN: Config failed: %s", err)
+		loggers.Errorf("Reading config failed: %s", err)
 		app.Config = config.Unconfigured
 	}
 
+	loggers.Infof("OpenID Connect auth config:")
+	loggers.Infof("  TenantID    = %s", app.TenantID)
+	loggers.Infof("  ClientID    = %s", app.ClientID)
+	loggers.Infof("  RedirectURI = %s", app.RedirectURI)
+	loggers.Infof("  AuthParams  = %s", app.AuthParams)
 	app.Auth, err = auth.New(app.TenantID, app.ClientID, app.ClientSecret, app.RedirectURI, app.AuthParams, app.Config, app.SessionStore)
 	if err != nil {
-		log.Printf("WARN: Auth failed: %s", err)
+		loggers.Errorf("Auth config failed: %s", err)
 		app.Config = config.Unconfigured
 	}
 
 	root := app.WWWRootPath
 	if app.Config.TestRoot {
+		loggers.Warnf("TestRoot enabled")
 		root = app.TestRootPath
 	}
+	loggers.Infof("Serving from root path %s", root)
 	app.Core = core.New(root, app.Config, app.SessionStore)
 
 	mux := http.NewServeMux()
-	if app.Auth != nil {
-		mux.HandleFunc("/.auth/login/aad", app.Auth.LoginHandler)
-		mux.HandleFunc("/.auth/login/aad/callback", app.Auth.CallbackHandler)
-		mux.HandleFunc("/.auth/logout", app.Auth.LogoutHandler)
-		mux.HandleFunc("/.auth/me", app.Auth.MeHandler)
-	}
+	mux.HandleFunc("/.auth/login/aad", app.Auth.LoginHandler)
+	mux.HandleFunc("/.auth/login/aad/callback", app.Auth.CallbackHandler)
+	mux.HandleFunc("/.auth/logout", app.Auth.LogoutHandler)
+	mux.HandleFunc("/.auth/me", app.Auth.MeHandler)
 	mux.HandleFunc("/", app.Core.Handler)
 
 	handler := logging.NewMiddleware(logger)(app.Core.NewMiddleware()(mux))
 
-	log.Println("Listening on", app.Listen)
+	loggers.Infof("Serving on %s", app.Listen)
 
 	return http.ListenAndServe(app.Listen, handler)
 }
@@ -129,6 +136,7 @@ func main() {
 	}
 	err := app.Main(context.Background())
 	if err != nil {
-		log.Fatal(err)
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 }
