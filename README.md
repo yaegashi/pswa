@@ -45,14 +45,22 @@ See [pswa-example.env](pswa-example.env) for example settings.
 ### Configuration file (pswa.config.json)
 
 See [pswa-example.config.json](pswa-example.config.json) for example settings.
+It's similar to [staticwebapp.config.json of Azure Static Web Apps](https://docs.microsoft.com/en-us/azure/static-web-apps/configuration).
 
 - If `testRoot` is true, it serves web content from `/testroot` instead of `/home/site/wwwroot`.
-- `roles` configuration is to define roles and its members.  It's very similar to [staticwebapp.config.json of Azure Static Web Apps](https://docs.microsoft.com/en-us/azure/static-web-apps/configuration).
-- `members` are object IDs of Azure AD groups.
+- You should specify `navigationFallback` to serve an SPA.
+- `roles` defines the roles and its members.  `members` are object IDs of Azure AD groups.
 
 ```json
 {
   "testRoot": true,
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": [
+      "/index.html",
+      "/*.{js,css,map}"
+    ]
+  },
   "routes": [
     {
       "route": "/admin/*",
@@ -61,7 +69,7 @@ See [pswa-example.config.json](pswa-example.config.json) for example settings.
       ]
     },
     {
-      "route": "/internal/*",
+      "route": "/authenticated/*",
       "allowedRoles": [
         "authenticated"
       ]
@@ -103,7 +111,6 @@ $ vi pswa.config.json
 
 Build a container and run it with docker-compose:
 ```console
-$ git submodule update --init
 $ docker-compose up --build
 Starting pswa_pswa_1 ... done
 Attaching to pswa_pswa_1                                                                                                                                     
