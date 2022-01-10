@@ -9,3 +9,4 @@ services:
       - ./pswa.config.json:/home/site/wwwroot/pswa.config.json
     ports:
       - "8080:8080"
+      - "2222:2222"
