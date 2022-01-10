@@ -59,6 +59,7 @@ func (c *Core) NewMiddleware() func(http.Handler) http.Handler {
 						r = r.Clone(r.Context())
 						r.URL.Path = c.Config.NavigationFallback.Rewrite
 						r.URL.RawPath = c.Config.NavigationFallback.Rewrite
+						w.Header().Set("Cache-Control", "no-cache")
 					}
 				}
 				next.ServeHTTP(w, r)

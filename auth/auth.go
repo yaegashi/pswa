@@ -82,6 +82,7 @@ func New(tenantID, clientID, clientSecret, redirectURI, authParams string, cfg *
 }
 
 func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-cache")
 	if a == nil {
 		http.Error(w, "Auth config failed: see log output", http.StatusInternalServerError)
 		return
@@ -157,13 +158,19 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain")
-	dump(w, oauth2Token)
-	dump(w, rawIDToken)
-	dump(w, claims)
+	fmt.Fprint(w, "OpenID Connect authentication debug output: NEVER expose OAuth2 tokens to others!\n\n")
+	fmt.Fprint(w, "Your identity:\n\n")
 	dump(w, identity)
+	fmt.Fprint(w, "\nDecoded ID token (name, email, groups):\n\n")
+	dump(w, claims)
+	fmt.Fprint(w, "\nRaw ID token:\n\n")
+	dump(w, rawIDToken)
+	fmt.Fprint(w, "\nOAuth2 tokens:\n\n")
+	dump(w, oauth2Token)
 }
 
 func (a *Auth) LoginHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-cache")
 	if a == nil {
 		http.Error(w, "Auth config failed: see log output", http.StatusInternalServerError)
 		return
@@ -188,6 +195,7 @@ func (a *Auth) LoginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Auth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-cache")
 	sessionReturn := r.FormValue(ReturnValueName)
 	if sessionReturn == "" {
 		sessionReturn = r.Header.Get("Referer")
@@ -210,6 +218,7 @@ func (a *Auth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Auth) MeHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-cache")
 	body := []byte("{}")
 	if a != nil {
 		session, _ := a.SessionStore.Get(r, SessionCookieName)

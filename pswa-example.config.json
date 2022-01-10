@@ -1,5 +1,12 @@
 {
   "testRoot": true,
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": [
+      "/index.html",
+      "/*.{js,css,map}"
+    ]
+  },
   "routes": [
     {
       "route": "/admin/*",
@@ -8,16 +15,10 @@
       ]
     },
     {
-      "route": "/internal/*",
+      "route": "/authenticated/*",
       "allowedRoles": [
         "authenticated"
       ]
-    },
-    {
-      "route": "/css/*",
-      "headers": {
-        "Cache-Control": "public, max-age=604800, immutable"
-      }
     },
     {
       "route": "/pswa.config.json",

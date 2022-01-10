@@ -20,16 +20,26 @@ const dataSource: { key: number, path: ReactNode, desc: string }[] = [
   },
   {
     key: 2,
-    path: <a href="/.auth/login/aad?debug=true">/.auth/login/aad?debug=true</a>,
-    desc: "Azure AD sign in debugging",
+    path: <a href="/.auth/login/aad?return=/">/.auth/login/aad?return=/</a>,
+    desc: "Azure AD sign in with redirect to /",
   },
   {
     key: 3,
+    path: <a href="/.auth/login/aad?debug=true">/.auth/login/aad?debug=true</a>,
+    desc: "Azure AD sign in with debug",
+  },
+  {
+    key: 4,
     path: <a href="/.auth/logout">/.auth/logout</a>,
     desc: "Sign out",
   },
   {
-    key: 4,
+    key: 5,
+    path: <a href="/.auth/logout?return=/">/.auth/logout?return=/</a>,
+    desc: "Sign out with redirect to /",
+  },
+  {
+    key: 6,
     path: <a href="/.auth/me">/.auth/me</a>,
     desc: "Authentication status",
   },
@@ -109,7 +119,8 @@ const AppAuth: React.FC = () => {
           setAlertType('error')
         }
       })()
-    }
+    },
+    []
   );
   return <Alert message={alertMsg} type={alertType} className="app-alert" />
 }
