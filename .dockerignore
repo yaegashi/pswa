@@ -1,0 +1,4 @@
+.git
+testroot/.parcel-cache
+testroot/node_modules
+testroot/dist
