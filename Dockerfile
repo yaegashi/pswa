@@ -1,7 +1,7 @@
-FROM golang:1.17 as build
+FROM golang:1.20 as build
 WORKDIR /app
 COPY . .
-RUN go build -v .
+RUN CGO_ENABLED=0 go build -v .
 
 FROM node:lts as testroot
 WORKDIR /testroot
