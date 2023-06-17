@@ -1,9 +1,11 @@
 package auth
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"strings"
@@ -12,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/sessions"
 	"github.com/yaegashi/pswa/config"
+	"github.com/yaegashi/pswa/logging"
 	"golang.org/x/oauth2"
 )
 
@@ -29,12 +32,6 @@ const (
 	ErrorValueName            = "error"
 	ErrorDescriptionValueName = "error_description"
 )
-
-func dump(w io.Writer, v interface{}) {
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	enc.Encode(v)
-}
 
 type Auth struct {
 	Provider              *oidc.Provider
@@ -75,10 +72,65 @@ func New(tenantID, clientID, clientSecret, redirectURI, authParams string, cfg *
 			ClientSecret: clientSecret,
 			RedirectURL:  redirectURI,
 			Endpoint:     provider.Endpoint(),
-			Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
+			Scopes:       []string{oidc.ScopeOpenID, "profile", "email", "User.Read"},
 		},
 		OAuth2AuthCodeOptions: authCodeOptions,
 	}, nil
+}
+
+// https://learn.microsoft.com/en-us/azure/active-directory/develop/id-token-claims-reference
+type ClaimNames struct {
+	Groups string `json:"groups"`
+}
+
+type ClaimSources struct {
+	Endpoint    string `json:"endpoint"`
+	AccessToken string `json:"access_token"`
+}
+
+type Claims struct {
+	Name         string                     `json:"name"`
+	Email        string                     `json:"email"`
+	Groups       []string                   `json:"groups"`
+	ClaimNames   ClaimNames                 `json:"_claim_names"`
+	ClaimSources map[string]json.RawMessage `json:"_claim_sources"`
+}
+
+const (
+	GraphMemberGroupsRequestURL  = "https://graph.microsoft.com/v1.0/me/getMemberObjects"
+	GraphMemberGroupsRequestBody = `{"securityEnabledOnly":true}`
+)
+
+type GraphMemberGroupsResponse struct {
+	Value []string `json:"value"`
+}
+
+func (a *Auth) GraphMemberGroupsRequest(ctx context.Context, oauth2Token *oauth2.Token) ([]string, error) {
+	reqBody := bytes.NewBufferString(GraphMemberGroupsRequestBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, GraphMemberGroupsRequestURL, reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("GraphMemberGroupsRequest failed: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+oauth2Token.AccessToken)
+	req.Header.Set("Content-Type", "application/json")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("GraphMemberGroupsRequest failed: %w", err)
+	}
+	defer res.Body.Close()
+	resBody, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("GraphMemberGroupsRequest failed: %w", err)
+	}
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GraphMemberGroupsRequest failed: %s: %s", res.Status, string(resBody))
+	}
+	var resGraph GraphMemberGroupsResponse
+	err = json.Unmarshal(resBody, &resGraph)
+	if err != nil {
+		return nil, fmt.Errorf("GraphMemberGroupsRequest failed: %w: %s", err, string(resBody))
+	}
+	return resGraph.Value, nil
 }
 
 func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
@@ -88,6 +140,7 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
+	logger := logging.Logger(ctx).Sugar()
 	session, _ := a.SessionStore.Get(r, SessionCookieName)
 	sessionState, ok := session.Values[StateValueName].(string)
 	if !ok {
@@ -117,7 +170,7 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unmatched state cookie", http.StatusBadRequest)
 		return
 	}
-	oauth2Token, err := a.OAuth2Config.Exchange(context.Background(), formCode)
+	oauth2Token, err := a.OAuth2Config.Exchange(ctx, formCode)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -132,21 +185,33 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	var claims struct {
-		Name   string   `json:"name"`
-		Email  string   `json:"email"`
-		Groups []string `json:"groups"`
-	}
+	var claims Claims
 	err = idToken.Claims(&claims)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	groups := claims.Groups
+	var graphGroups []string
+	var graphErr error
+	if groups == nil {
+		logger.Info("No groups claim found.  Making a graph member groups request...")
+		graphGroups, graphErr = a.GraphMemberGroupsRequest(ctx, oauth2Token)
+		if graphErr == nil {
+			groups = graphGroups
+		} else {
+			logger.Error(graphErr)
+		}
+	}
+
 	identity := &Identity{
 		Name:  claims.Name,
 		Email: claims.Email,
-		Roles: a.Config.MemberRoles(claims.Groups),
+		Roles: a.Config.MemberRoles(groups),
 	}
+	logger.Infof("Identity: %#v", identity)
+
 	session.Values[IdentityValueName] = identity
 	err = session.Save(r, w)
 	if err != nil {
@@ -157,16 +222,24 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, sessionReturn, http.StatusFound)
 		return
 	}
-	w.Header().Set("Content-Type", "text/plain")
-	fmt.Fprint(w, "OpenID Connect authentication debug output: NEVER expose OAuth2 tokens to others!\n\n")
-	fmt.Fprint(w, "Your identity:\n\n")
-	dump(w, identity)
-	fmt.Fprint(w, "\nDecoded ID token (name, email, groups):\n\n")
-	dump(w, claims)
-	fmt.Fprint(w, "\nRaw ID token:\n\n")
-	dump(w, rawIDToken)
-	fmt.Fprint(w, "\nOAuth2 tokens:\n\n")
-	dump(w, oauth2Token)
+	htmldump := func(v any) string {
+		b, _ := json.MarshalIndent(v, "", "  ")
+		return html.EscapeString(string(b))
+	}
+	w.Header().Set("Content-Type", "text/html")
+	fmt.Fprintf(w, `<style>pre { border: solid; padding: 1ex; white-space: pre-wrap; word-break: break-all; font-family: "Consolas", "Courier New", monospace; }</style>`)
+	fmt.Fprintf(w, `<p>OpenID Connect authentication debug output: NEVER expose OAuth2 tokens to others!</p>`)
+	fmt.Fprintf(w, `<p><a href="%s">Back to the application</a></p>`, sessionReturn)
+	fmt.Fprintf(w, `<p>Your identity:</p><pre>%s</pre>`, htmldump(identity))
+	fmt.Fprintf(w, `<p>Decoded ID token (name, email, groups):</p><pre>%s</pre>`, htmldump(claims))
+	fmt.Fprintf(w, `<p>Graph member groups response:</p>`)
+	if graphErr == nil {
+		fmt.Fprintf(w, `<pre>%s</pre>`, htmldump(graphGroups))
+	} else {
+		fmt.Fprintf(w, `<pre>%s</pre>`, graphErr)
+	}
+	fmt.Fprintf(w, `<p>Raw ID token:</p><pre>%s</pre>`, rawIDToken)
+	fmt.Fprintf(w, `<p>Raw OAuth2 tokens:</p><pre>%s</pre>`, htmldump(oauth2Token))
 }
 
 func (a *Auth) LoginHandler(w http.ResponseWriter, r *http.Request) {
