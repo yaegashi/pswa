@@ -1,4 +1,5 @@
 {
+  "testHandler": true,
   "testRoot": true,
   "navigationFallback": {
     "rewrite": "/index.html",

@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-func (a *Auth) MeHandler(w http.ResponseWriter, r *http.Request) {
+func (a *Auth) IdentityHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 	body := []byte("null")
 	if a != nil {

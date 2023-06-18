@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -12,7 +13,8 @@ import (
 )
 
 const (
-	FormatAADBaseURL = "https://login.microsoftonline.com/%s/v2.0"
+	FormatAADBaseURL           = "https://login.microsoftonline.com/%s/v2.0"
+	EasyAuthAppSettingsEnvName = "WEBSITE_AUTH_ENABLED"
 )
 
 type Auth struct {
@@ -22,13 +24,22 @@ type Auth struct {
 	OAuth2AuthCodeOptions []oauth2.AuthCodeOption
 	Config                *config.Config
 	SessionStore          sessions.Store
+	EasyAuth              bool
 }
 
-func New(tenantID, clientID, clientSecret, redirectURI, authParams string, cfg *config.Config, ss sessions.Store) (*Auth, error) {
+func New(cfg *config.Config, ss sessions.Store) *Auth {
+	return &Auth{
+		Config:       cfg,
+		SessionStore: ss,
+		EasyAuth:     strings.ToLower(os.Getenv(EasyAuthAppSettingsEnvName)) == "true",
+	}
+}
+
+func (a *Auth) ConfigureOIDC(tenantID, clientID, clientSecret, redirectURI, authParams string) error {
 	baseURL := fmt.Sprintf(FormatAADBaseURL, tenantID)
 	provider, err := oidc.NewProvider(context.Background(), baseURL)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	verifier := provider.Verifier(&oidc.Config{ClientID: clientID})
 	var authCodeOptions []oauth2.AuthCodeOption
@@ -38,18 +49,15 @@ func New(tenantID, clientID, clientSecret, redirectURI, authParams string, cfg *
 			authCodeOptions = append(authCodeOptions, oauth2.SetAuthURLParam(s[0], s[1]))
 		}
 	}
-	return &Auth{
-		Provider:     provider,
-		Verifier:     verifier,
-		SessionStore: ss,
-		Config:       cfg,
-		OAuth2Config: &oauth2.Config{
-			ClientID:     clientID,
-			ClientSecret: clientSecret,
-			RedirectURL:  redirectURI,
-			Endpoint:     provider.Endpoint(),
-			Scopes:       []string{oidc.ScopeOpenID, "profile", "email", "User.Read"},
-		},
-		OAuth2AuthCodeOptions: authCodeOptions,
-	}, nil
+	a.Provider = provider
+	a.Verifier = verifier
+	a.OAuth2Config = &oauth2.Config{
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		RedirectURL:  redirectURI,
+		Endpoint:     provider.Endpoint(),
+		Scopes:       []string{oidc.ScopeOpenID, "profile", "email", "User.Read"},
+	}
+	a.OAuth2AuthCodeOptions = authCodeOptions
+	return nil
 }

@@ -1,8 +1,8 @@
 package config
 
 type NavigationFallback struct {
-	Rewrite  string    `json:"rewrite"`
-	Exclude  []string  `json:"exclude"`
+	Rewrite  string    `json:"rewrite,omitempty"`
+	Exclude  []string  `json:"exclude,omitempty"`
 	Globbers []Globber `json:"-"`
 }
 

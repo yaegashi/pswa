@@ -15,32 +15,32 @@ const dataSource: { key: number, path: ReactNode, desc: string }[] = [
   },
   {
     key: 1,
-    path: <a href="/.auth/login/aad">/.auth/login/aad</a>,
-    desc: "Azure AD sign in",
+    path: <a href="/.auth/pswa/login">/.auth/pswa/login</a>,
+    desc: "Azure AD sign in and redirect to the referer",
   },
   {
     key: 2,
-    path: <a href="/.auth/login/aad?return=/">/.auth/login/aad?return=/</a>,
-    desc: "Azure AD sign in with redirect to /",
+    path: <a href="/.auth/pswa/login?return=/">/.auth/pswa/login?return=/</a>,
+    desc: "Azure AD sign in and redirect to /",
   },
   {
     key: 3,
-    path: <a href="/.auth/login/aad?debug=true">/.auth/login/aad?debug=true</a>,
-    desc: "Azure AD sign in with debug",
+    path: <a href="/.auth/pswa/login?debug=true">/.auth/pswa/login?debug=true</a>,
+    desc: "Azure AD sign in with debugging enabled",
   },
   {
     key: 4,
-    path: <a href="/.auth/logout">/.auth/logout</a>,
-    desc: "Sign out",
+    path: <a href="/.auth/pswa/logout">/.auth/pswa/logout</a>,
+    desc: "Sign out and redirect to the referer",
   },
   {
     key: 5,
-    path: <a href="/.auth/logout?return=/">/.auth/logout?return=/</a>,
-    desc: "Sign out with redirect to /",
+    path: <a href="/.auth/pswa/logout?return=/">/.auth/pswa/logout?return=/</a>,
+    desc: "Sign out and redirect to /",
   },
   {
     key: 6,
-    path: <a href="/.auth/me">/.auth/me</a>,
+    path: <a href="/.auth/pswa/identity">/.auth/pswa/identity</a>,
     desc: "Authentication status",
   },
 ]
@@ -97,7 +97,7 @@ const AppLocation: React.FC = () => {
 }
 
 const AppAuth: React.FC = () => {
-  const ep = '/.auth/me'
+  const ep = '/.auth/pswa/identity'
   const [alertMsg, setAlertMsg] = React.useState(`GET ${ep} ...`)
   const [alertType, setAlertType] = React.useState<'info' | 'error'>('info')
   React.useEffect(

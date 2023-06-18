@@ -8,14 +8,14 @@ import (
 )
 
 type Route struct {
-	Route        string            `json:"route"`
-	Rewrite      string            `json:"rewrite"`
-	Redirect     string            `json:"redirect"`
-	Proxy        string            `json:"proxy"`
-	AllowedRoles []string          `json:"allowedRoles"`
-	Headers      map[string]string `json:"headers"`
-	StatusCode   string            `json:"statusCode"`
-	Methods      []string          `json:"methods"`
+	Route        string            `json:"route,omitempty"`
+	Rewrite      string            `json:"rewrite,omitempty"`
+	Redirect     string            `json:"redirect,omitempty"`
+	Proxy        string            `json:"proxy,omitempty"`
+	AllowedRoles []string          `json:"allowedRoles,omitempty"`
+	Headers      map[string]string `json:"headers,omitempty"`
+	StatusCode   string            `json:"statusCode,omitempty"`
+	Methods      []string          `json:"methods,omitempty"`
 	ProxyHandler http.Handler      `json:"-"`
 	Globber      Globber           `json:"-"`
 }

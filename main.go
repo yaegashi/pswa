@@ -76,14 +76,22 @@ func (app *App) Main(ctx context.Context) error {
 		app.Config = config.Unconfigured
 	}
 
+	app.Auth = auth.New(app.Config, app.SessionStore)
 	loggers.Infof("OpenID Connect auth config:")
 	loggers.Infof("  TenantID    = %s", app.TenantID)
 	loggers.Infof("  ClientID    = %s", app.ClientID)
 	loggers.Infof("  RedirectURI = %s", app.RedirectURI)
 	loggers.Infof("  AuthParams  = %s", app.AuthParams)
-	app.Auth, err = auth.New(app.TenantID, app.ClientID, app.ClientSecret, app.RedirectURI, app.AuthParams, app.Config, app.SessionStore)
-	if err != nil {
-		loggers.Errorf("Auth config failed: %s", err)
+
+	if app.Auth.EasyAuth {
+		loggers.Infof("EasyAuth enabled, skipping OpenID Connect auth config")
+	} else if app.TenantID == "" || app.ClientID == "" || app.ClientSecret == "" || app.RedirectURI == "" {
+		loggers.Errorf("OpenID Connect auth config missing")
+	} else {
+		err = app.Auth.ConfigureOIDC(app.TenantID, app.ClientID, app.ClientSecret, app.RedirectURI, app.AuthParams)
+		if err != nil {
+			loggers.Errorf("OpenID Connect auth config failed: %s", err)
+		}
 	}
 
 	root := app.WWWRootPath
@@ -95,10 +103,15 @@ func (app *App) Main(ctx context.Context) error {
 	app.Core = core.New(root, app.Config, app.Auth)
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("/.auth/pswa/identity", app.Auth.IdentityHandler)
+	mux.HandleFunc("/.auth/pswa/easyauth", app.Auth.EasyAuthHandler)
+	mux.HandleFunc("/.auth/pswa/login", app.Auth.LoginHandler)
+	mux.HandleFunc("/.auth/pswa/logout", app.Auth.LogoutHandler)
+	mux.HandleFunc("/.auth/pswa/callback", app.Auth.CallbackHandler)
 	mux.HandleFunc("/.auth/login/aad", app.Auth.LoginHandler)
 	mux.HandleFunc("/.auth/login/aad/callback", app.Auth.CallbackHandler)
 	mux.HandleFunc("/.auth/logout", app.Auth.LogoutHandler)
-	mux.HandleFunc("/.auth/me", app.Auth.MeHandler)
+	mux.HandleFunc("/.auth/me", app.Auth.IdentityHandler)
 	h := app.Core.FileHandler
 	if app.Config.TestHandler {
 		h = app.Core.TestHandler

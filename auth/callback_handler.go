@@ -40,8 +40,8 @@ func htmlDump(v any) string {
 
 func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
-	if a == nil {
-		http.Error(w, "Auth config failed: see log output", http.StatusInternalServerError)
+	if a.OAuth2Config == nil {
+		http.Error(w, "OpenID Connect auth config failed: see log output", http.StatusInternalServerError)
 		return
 	}
 	ctx := r.Context()
@@ -128,12 +128,12 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/html")
+	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 
 	// Title and navigation
 	fmt.Fprintf(w, `<style>pre { border: solid; padding: 1ex; white-space: pre-wrap; word-break: break-all; font-family: "Consolas", "Courier New", monospace; }</style>`)
 	fmt.Fprintf(w, `<h1>PSWA Callback Handler</h1>`)
-	fmt.Fprintf(w, `<p>This is the OpenID Connect authentication debug output; NEVER expose any tokens to others!</p>`)
+	fmt.Fprintf(w, `<p>This is the output for debugging purposes; NEVER expose any tokens to others!</p>`)
 	fmt.Fprintf(w, `<p><a href="%s">Back to the application</a></p>`, sessionReturn)
 
 	// Identity to be stored in the cookie
@@ -150,11 +150,11 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	if graphErr == nil {
 		fmt.Fprintf(w, `<pre>%s</pre>`, htmlDump(graphGroups))
 	} else {
-		fmt.Fprintf(w, `<pre>%s</pre>`, graphErr)
+		fmt.Fprintf(w, `<pre>%s</pre>`, html.EscapeString(graphErr.Error()))
 	}
 
 	// Raw ID token
-	fmt.Fprintf(w, `<p>Raw ID token:</p><pre>%s</pre>`, rawIDToken)
+	fmt.Fprintf(w, `<p>Raw ID token:</p><pre>%s</pre>`, html.EscapeString(rawIDToken))
 
 	// Raw OAuth2 token
 	fmt.Fprintf(w, `<p>Raw OAuth2 tokens:</p><pre>%s</pre>`, htmlDump(oauth2Token))
