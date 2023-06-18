@@ -84,7 +84,6 @@ func (app *App) Main(ctx context.Context) error {
 	app.Auth, err = auth.New(app.TenantID, app.ClientID, app.ClientSecret, app.RedirectURI, app.AuthParams, app.Config, app.SessionStore)
 	if err != nil {
 		loggers.Errorf("Auth config failed: %s", err)
-		app.Config = config.Unconfigured
 	}
 
 	root := app.WWWRootPath
@@ -93,16 +92,20 @@ func (app *App) Main(ctx context.Context) error {
 		root = app.TestRootPath
 	}
 	loggers.Infof("Serving from root path %s", root)
-	app.Core = core.New(root, app.Config, app.SessionStore)
+	app.Core = core.New(root, app.Config, app.Auth)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/.auth/login/aad", app.Auth.LoginHandler)
 	mux.HandleFunc("/.auth/login/aad/callback", app.Auth.CallbackHandler)
 	mux.HandleFunc("/.auth/logout", app.Auth.LogoutHandler)
 	mux.HandleFunc("/.auth/me", app.Auth.MeHandler)
-	mux.HandleFunc("/", app.Core.Handler)
+	h := app.Core.FileHandler
+	if app.Config.TestHandler {
+		h = app.Core.TestHandler
+	}
+	mux.Handle("/", app.Core.NewMiddleware()(http.HandlerFunc(h)))
 
-	handler := logging.NewMiddleware(logger)(app.Core.NewMiddleware()(mux))
+	handler := logging.NewMiddleware(logger)(mux)
 
 	loggers.Infof("Serving on %s", app.Listen)
 

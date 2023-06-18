@@ -2,15 +2,16 @@ package config
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"sort"
 )
 
 type Config struct {
+	TestHandler        bool                `json:"testHandler"`
 	TestRoot           bool                `json:"testRoot"`
-	Routes             []*Route            `json:"routes"`
-	Roles              []*Role             `json:"roles"`
-	NavigationFallback *NavigationFallback `json:"navigationFallback"`
+	Routes             []*Route            `json:"routes,omitempty"`
+	Roles              []*Role             `json:"roles,omitempty"`
+	NavigationFallback *NavigationFallback `json:"navigationFallback,omitempty"`
 }
 
 func (c *Config) MemberRoles(members []string) []string {
@@ -33,7 +34,7 @@ func (c *Config) MemberRoles(members []string) []string {
 
 func New(configPath string) (*Config, error) {
 	c := &Config{}
-	b, err := ioutil.ReadFile(configPath)
+	b, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, err
 	}
@@ -56,4 +57,7 @@ func New(configPath string) (*Config, error) {
 	return c, nil
 }
 
-var Unconfigured = &Config{TestRoot: true}
+var Unconfigured = &Config{
+	TestHandler: true,
+	TestRoot:    true,
+}
