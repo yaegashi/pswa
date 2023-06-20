@@ -1,11 +1,23 @@
 package core
 
 import (
+	"errors"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
+func fileErrorStatus(err error) (httpStatus int) {
+	if errors.Is(err, fs.ErrNotExist) {
+		return http.StatusNotFound
+	}
+	if errors.Is(err, fs.ErrPermission) {
+		return http.StatusForbidden
+	}
+	return http.StatusInternalServerError
+}
 
 func (c *Core) FileHandler(w http.ResponseWriter, r *http.Request) {
 	p := filepath.Join(c.Root, filepath.Clean(r.URL.Path))
@@ -15,15 +27,13 @@ func (c *Core) FileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	f, err := os.Open(p)
 	if err != nil {
-		msg, status := toHTTPError(err)
-		http.Error(w, msg, status)
+		httpWriteError(w, r, fileErrorStatus(err), "")
 		return
 	}
 	defer f.Close()
 	d, err := f.Stat()
 	if err != nil {
-		msg, status := toHTTPError(err)
-		http.Error(w, msg, status)
+		httpWriteError(w, r, fileErrorStatus(err), "")
 		return
 	}
 	http.ServeContent(w, r, d.Name(), d.ModTime(), f)

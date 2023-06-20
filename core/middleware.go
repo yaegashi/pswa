@@ -85,7 +85,7 @@ func (c *Core) NewMiddleware() func(http.Handler) http.Handler {
 
 			if reqRoute.AllowedRoles != nil {
 				if identity == nil {
-					redirectURL := fmt.Sprintf("/.auth/login/aad?return=%s", url.QueryEscape(r.URL.String()))
+					redirectURL := fmt.Sprintf("/.auth/pswa/login?return=%s", url.QueryEscape(r.URL.String()))
 					http.Redirect(w, r, redirectURL, http.StatusFound)
 					return
 				}
@@ -98,7 +98,7 @@ func (c *Core) NewMiddleware() func(http.Handler) http.Handler {
 					}
 				}
 				if !ok {
-					http.Error(w, "403 Forbidden", http.StatusForbidden)
+					httpWriteError(w, r, http.StatusForbidden, "")
 					return
 				}
 			}
