@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"os"
 	"sort"
+
+	"github.com/tidwall/jsonc"
 )
 
 type Config struct {
@@ -38,7 +40,7 @@ func New(configPath string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = json.Unmarshal(b, &c)
+	err = json.Unmarshal(jsonc.ToJSON(b), &c)
 	if err != nil {
 		return nil, err
 	}

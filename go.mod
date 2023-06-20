@@ -8,6 +8,7 @@ require (
 	github.com/gobwas/glob v0.2.3
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/sessions v1.2.1
+	github.com/tidwall/jsonc v0.3.2
 	go.uber.org/zap v1.24.0
 	golang.org/x/oauth2 v0.9.0
 )
