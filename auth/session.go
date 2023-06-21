@@ -1,13 +1,14 @@
 package auth
 
 import (
+	"encoding/gob"
 	"net/http"
 
 	"github.com/gorilla/sessions"
 )
 
 const (
-	SessionCookieName = "session"
+	SessionCookieName = "PSWASession"
 	StateValueName    = "state"
 	ReturnValueName   = "return"
 	IdentityValueName = "identity"
@@ -18,6 +19,10 @@ type Identity struct {
 	Name  string   `json:"name"`
 	Email string   `json:"email"`
 	Roles []string `json:"roles"`
+}
+
+func init() {
+	gob.Register(&Identity{})
 }
 
 func (a *Auth) Session(r *http.Request) *sessions.Session {

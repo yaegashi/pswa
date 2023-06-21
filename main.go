@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/gob"
 	"fmt"
 	"net/http"
 	"os"
@@ -61,8 +60,6 @@ func (app *App) Main(ctx context.Context) error {
 	defer logger.Sync()
 	loggers := logger.WithOptions(zap.WithCaller(false)).Sugar()
 
-	gob.Register(&auth.Identity{})
-
 	app.SessionStore = sessions.NewCookieStore([]byte(app.SessionKey))
 
 	configPath := app.ConfigPath
@@ -103,20 +100,13 @@ func (app *App) Main(ctx context.Context) error {
 	app.Core = core.New(root, app.Config, app.Auth)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/.auth/pswa/identity", app.Auth.IdentityHandler)
-	mux.HandleFunc("/.auth/pswa/easyauth", app.Auth.EasyAuthHandler)
-	mux.HandleFunc("/.auth/pswa/login", app.Auth.LoginHandler)
-	mux.HandleFunc("/.auth/pswa/logout", app.Auth.LogoutHandler)
-	mux.HandleFunc("/.auth/pswa/callback", app.Auth.CallbackHandler)
-	mux.HandleFunc("/.auth/login/aad", app.Auth.LoginHandler)
-	mux.HandleFunc("/.auth/login/aad/callback", app.Auth.CallbackHandler)
-	mux.HandleFunc("/.auth/logout", app.Auth.LogoutHandler)
-	mux.HandleFunc("/.auth/me", app.Auth.IdentityHandler)
-	h := app.Core.FileHandler
+	app.Auth.RegisterHandlers(mux)
+
+	coreHandler := app.Core.FileHandler
 	if app.Config.TestHandler {
-		h = app.Core.TestHandler
+		coreHandler = app.Core.TestHandler
 	}
-	mux.Handle("/", app.Core.NewMiddleware()(http.HandlerFunc(h)))
+	mux.Handle("/", app.Core.NewMiddleware()(http.HandlerFunc(coreHandler)))
 
 	handler := logging.NewMiddleware(logger)(mux)
 

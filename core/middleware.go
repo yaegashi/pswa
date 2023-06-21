@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/yaegashi/pswa/auth"
 	"github.com/yaegashi/pswa/config"
 	"github.com/yaegashi/pswa/logging"
 )
@@ -85,7 +86,11 @@ func (c *Core) NewMiddleware() func(http.Handler) http.Handler {
 
 			if reqRoute.AllowedRoles != nil {
 				if identity == nil {
-					redirectURL := fmt.Sprintf("/.auth/pswa/login?return=%s", url.QueryEscape(r.URL.String()))
+					redirectPath := auth.LoginHandlerPath
+					if c.Auth.EasyAuth {
+						redirectPath = auth.EasyAuthHandlerPath
+					}
+					redirectURL := fmt.Sprintf("%s?%s=%s", redirectPath, auth.ReturnValueName, url.QueryEscape(r.URL.String()))
 					http.Redirect(w, r, redirectURL, http.StatusFound)
 					return
 				}
