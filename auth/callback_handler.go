@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html"
 	"net/http"
+	"strings"
 
 	"github.com/yaegashi/pswa/logging"
 )
@@ -26,6 +27,7 @@ type ClaimSources struct {
 }
 
 type Claims struct {
+	Id           string                     `json:"oid"`
 	Name         string                     `json:"name"`
 	Email        string                     `json:"email"`
 	Groups       []string                   `json:"groups"`
@@ -97,23 +99,38 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	typ := "user"
+	id := claims.Id
+	name := claims.Name
+	email := claims.Email
 	groups := claims.Groups
+
+	members := make([]string, len(groups)+1)
+	members[0] = strings.ToLower(id)
+	for i, g := range groups {
+		members[i+1] = strings.ToLower(g)
+	}
+
 	var graphGroups []string
 	var graphErr error
 	if groups == nil {
 		logger.Info("No groups claim found.  Making a graph member groups request...")
 		graphGroups, graphErr = GraphMemberGroupsRequest(ctx, oauth2Token)
 		if graphErr == nil {
-			groups = graphGroups
+			for _, g := range graphGroups {
+				members = append(members, strings.ToLower(g))
+			}
 		} else {
 			logger.Error(graphErr)
 		}
 	}
 
 	identity := &Identity{
-		Name:  claims.Name,
-		Email: claims.Email,
-		Roles: a.Config.MemberRoles(groups),
+		Typ:   typ,
+		Id:    id,
+		Name:  name,
+		Email: email,
+		Roles: a.Config.MemberRoles(members),
 	}
 	logger.Infof("Identity: %#v", identity)
 

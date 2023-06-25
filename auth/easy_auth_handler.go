@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html"
 	"net/http"
+	"strings"
 
 	"github.com/yaegashi/pswa/logging"
 	"golang.org/x/oauth2"
@@ -59,9 +60,20 @@ func (a *Auth) EasyAuthHandler(w http.ResponseWriter, r *http.Request) {
 		principalMap[claim.Typ] = claim.Val
 	}
 
+	typ := "user"
+	if principal.NameTyp == "appid" {
+		typ = "app"
+	}
+	id, _ := principalMap["http://schemas.microsoft.com/identity/claims/objectidentifier"].(string)
 	name, _ := principalMap["name"].(string)
 	email, _ := principalMap["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"].(string)
-	groups, _ := principalMap["groups"].([]string)
+	groups := principalMap["groups"].([]string)
+
+	members := make([]string, len(groups)+1)
+	members[0] = strings.ToLower(id)
+	for i, g := range groups {
+		members[i+1] = strings.ToLower(g)
+	}
 
 	var graphGroups []string
 	var graphErr error
@@ -69,16 +81,20 @@ func (a *Auth) EasyAuthHandler(w http.ResponseWriter, r *http.Request) {
 		logger.Info("No groups claim found.  Making a graph member groups request...")
 		graphGroups, graphErr = GraphMemberGroupsRequest(ctx, &oauth2.Token{AccessToken: xAccessToken})
 		if graphErr == nil {
-			groups = graphGroups
+			for _, g := range graphGroups {
+				members = append(members, strings.ToLower(g))
+			}
 		} else {
 			logger.Error(graphErr)
 		}
 	}
 
 	identity := &Identity{
+		Typ:   typ,
+		Id:    id,
 		Name:  name,
 		Email: email,
-		Roles: a.Config.MemberRoles(groups),
+		Roles: a.Config.MemberRoles(members),
 	}
 	logger.Infof("Identity: %#v", identity)
 

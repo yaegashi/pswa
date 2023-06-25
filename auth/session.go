@@ -16,9 +16,11 @@ const (
 )
 
 type Identity struct {
-	Name  string   `json:"name"`
-	Email string   `json:"email"`
-	Roles []string `json:"roles"`
+	Typ   string   `json:"typ,omitempty"`
+	Id    string   `json:"id,omitempty"`
+	Name  string   `json:"name,omitempty"`
+	Email string   `json:"email,omitempty"`
+	Roles []string `json:"roles,omitempty"`
 }
 
 func init() {

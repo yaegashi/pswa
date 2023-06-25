@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strings"
 )
 
 type Route struct {
@@ -32,7 +33,7 @@ func (r *Route) Compile() error {
 		}
 		r.ProxyHandler = httputil.NewSingleHostReverseProxy(u)
 	}
-	for _, ar := range r.AllowedRoles {
+	for i, ar := range r.AllowedRoles {
 		if ar == "anonymous" {
 			r.AllowedRoles = nil
 			break
@@ -41,6 +42,7 @@ func (r *Route) Compile() error {
 			r.AllowedRoles = []string{"authenticated"}
 			break
 		}
+		r.AllowedRoles[i] = strings.ToLower(ar)
 	}
 	return nil
 }
