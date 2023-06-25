@@ -67,7 +67,7 @@ func (a *Auth) EasyAuthHandler(w http.ResponseWriter, r *http.Request) {
 	id, _ := principalMap["http://schemas.microsoft.com/identity/claims/objectidentifier"].(string)
 	name, _ := principalMap["name"].(string)
 	email, _ := principalMap["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"].(string)
-	groups := principalMap["groups"].([]string)
+	groups, _ := principalMap["groups"].([]string)
 
 	members := make([]string, len(groups)+1)
 	members[0] = strings.ToLower(id)
