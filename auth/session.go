@@ -29,6 +29,9 @@ func init() {
 
 func (a *Auth) Session(r *http.Request) *sessions.Session {
 	session, _ := a.SessionStore.Get(r, SessionCookieName)
+	session.Options.HttpOnly = true
+	session.Options.Secure = true
+	session.Options.SameSite = http.SameSiteNoneMode
 	return session
 }
 
