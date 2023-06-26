@@ -108,14 +108,20 @@ func (a *Auth) EasyAuthHandler(w http.ResponseWriter, r *http.Request) {
 	delete(session.Values, ReturnValueName)
 	delete(session.Values, DebugValueName)
 
-	formReturn := r.Form.Get(ReturnValueName)
+	formReturn := r.FormValue(ReturnValueName)
 	if formReturn != "" {
 		sessionReturn = formReturn
 	}
-	formDebug := r.Form.Get(DebugValueName)
+	formDebug := r.FormValue(DebugValueName)
 	if formDebug != "" {
 		sessionDebug = formDebug
 	}
+
+	logger.Infof("form: %#v", r.Form)
+	logger.Infof("formReturn: %#v", formReturn)
+	logger.Infof("formDebug: %#v", formDebug)
+	logger.Infof("sessionReturn: %#v", sessionReturn)
+	logger.Infof("sessionDebug: %#v", sessionDebug)
 
 	session.Values[IdentityValueName] = identity
 	err = session.Save(r, w)
